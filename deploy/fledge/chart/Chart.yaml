@@ -1,0 +1,6 @@
+apiVersion: v2
+name: fledge-demo
+description: One persistent Fledge instance with optional independent GUI and LAN access
+version: 0.3.0
+appVersion: "3.1.0"
+type: application

@@ -1,0 +1,29 @@
+# The namespace and data volume for Fledge. You apply this file with kubectl.
+# It is outside deploy/fledge, so App Flows doesn't manage it and removing the
+# workload keeps the data.
+# The PVC uses the default storage class. Set storageClassName to use another.
+# If you rename these, also update the namespace in deploy/fledge/fleet.yaml
+# and existingClaim in deploy/fledge/chart/values.yaml.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fledge-demo
+  labels:
+    app.kubernetes.io/part-of: fledge-demo
+    fledge-demo/owner: operator
+    fledge-demo/instance: fledge
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fledge-data
+  namespace: fledge-demo
+  labels:
+    app.kubernetes.io/part-of: fledge-demo
+    fledge-demo/owner: operator
+    fledge-demo/instance: fledge
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi

@@ -1,0 +1,15 @@
+# Register only deploy/pump-demo/ in App Flows, never the repository root.
+# The namespace, the influxdb-data PVC and the pump-simulator-server,
+# pump-simulator-operator, influxdb-admin and grafana-admin Secrets must already
+# exist outside this bundle. Grafana starts once grafana-influxdb exists.
+defaultNamespace: fledge-demo
+helm:
+  chart: ./chart
+  releaseName: pump-demo
+  # Demo selection: Grafana on the LAN over plain HTTP; the chart default is
+  # cluster-internal. Requires a restricted network; see docs/pump-demo.md.
+  values:
+    grafana:
+      service:
+        type: NodePort
+        nodePort: 30083

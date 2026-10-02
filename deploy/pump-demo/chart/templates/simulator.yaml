@@ -1,0 +1,107 @@
+# The server certificate names this Service, so its name is fixed.
+apiVersion: v1
+kind: Service
+metadata:
+  name: pump-simulator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "demo.labels" (dict "root" . "name" "pump-simulator") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "demo.selector" (dict "root" . "name" "pump-simulator") | nindent 4 }}
+  ports:
+    - name: opcua
+      port: 4840
+      targetPort: opcua
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pump-simulator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "demo.labels" (dict "root" . "name" "pump-simulator") | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "demo.selector" (dict "root" . "name" "pump-simulator") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo.labels" (dict "root" . "name" "pump-simulator") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      # Service links would define PUMP_SIMULATOR_* variables for this Service.
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 15
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: pump-simulator
+          image: "{{ .Values.simulator.image.repository }}@{{ .Values.simulator.image.digest }}"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PUMP_SIMULATOR_SEED
+              value: {{ .Values.simulator.seed | quote }}
+          ports:
+            - name: opcua
+              containerPort: 4840
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.simulator.resources | nindent 12 }}
+          # The server opens the port only after loading its certificates.
+          startupProbe:
+            tcpSocket:
+              port: opcua
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: opcua
+            periodSeconds: 5
+            failureThreshold: 1
+          livenessProbe:
+            tcpSocket:
+              port: opcua
+            periodSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: server
+              mountPath: /etc/pump-simulator/server
+              readOnly: true
+            - name: operator
+              mountPath: /etc/pump-simulator/operator
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: server
+          secret:
+            secretName: {{ .Values.simulator.serverSecret }}
+            defaultMode: 0440
+        - name: operator
+          secret:
+            secretName: {{ .Values.simulator.operatorSecret }}
+            defaultMode: 0440
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi

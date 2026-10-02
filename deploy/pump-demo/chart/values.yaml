@@ -1,0 +1,56 @@
+simulator:
+  # Select a published simulator image by digest.
+  image:
+    repository: matthiasl381/pump-simulator
+    digest: sha256:abc39e596b204e64d9494f64e2fd4f766dbf3ad8a3b1e9c29d2854490e98eb16
+  # Operator-created Secrets: server certificate, key and CA; operator certificate and key.
+  serverSecret: pump-simulator-server
+  operatorSecret: pump-simulator-operator
+  # Seed of the simulated measurement noise.
+  seed: "0"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+influxdb:
+  image:
+    repository: influxdb
+    # 2.7.12
+    digest: sha256:b8d940ca9376f85118260f5b6bd236b8a00b1749c3350c5578d4cde8e27f31f2
+  # Used only on the first start, when the volume is empty.
+  org: fledge-demo
+  bucket: pumps
+  retention: 7d
+  existingClaim: influxdb-data
+  # Operator-created Secret with the keys username, password and token.
+  adminSecret: influxdb-admin
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+grafana:
+  image:
+    repository: grafana/grafana
+    # 13.0.10
+    digest: sha256:c8f326efdb7be9be52047edaab34cf8dadb5152c1244af102eb0a517a7797068
+  # Operator-created Secrets: the admin password (key password) and the
+  # read-only InfluxDB token (key token).
+  adminSecret: grafana-admin
+  tokenSecret: grafana-influxdb
+  service:
+    type: ClusterIP
+    nodePort: 30083
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+imagePullSecrets: []

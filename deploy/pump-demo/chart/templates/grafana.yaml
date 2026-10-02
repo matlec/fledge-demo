@@ -1,0 +1,166 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "demo.labels" (dict "root" . "name" "grafana") | nindent 4 }}
+data:
+  datasource.yaml: |
+    {{- tpl (.Files.Get "files/datasource.yaml") . | nindent 4 }}
+  dashboards.yaml: |
+    {{- .Files.Get "files/dashboards.yaml" | nindent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "demo.labels" (dict "root" . "name" "grafana") | nindent 4 }}
+data:
+  pumps.json: |
+    {{- tpl (.Files.Get "files/pumps.json") . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "demo.labels" (dict "root" . "name" "grafana") | nindent 4 }}
+spec:
+  type: {{ .Values.grafana.service.type }}
+  selector:
+    {{- include "demo.selector" (dict "root" . "name" "grafana") | nindent 4 }}
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      {{- if eq .Values.grafana.service.type "NodePort" }}
+      nodePort: {{ .Values.grafana.service.nodePort }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "demo.labels" (dict "root" . "name" "grafana") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "demo.selector" (dict "root" . "name" "grafana") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo.labels" (dict "root" . "name" "grafana") | nindent 8 }}
+      annotations:
+        # A changed data source or dashboard replaces only this pod.
+        checksum/provisioning: {{ tpl (.Files.Get "files/datasource.yaml") . | cat (.Files.Get "files/dashboards.yaml") (tpl (.Files.Get "files/pumps.json") .) | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: grafana
+          image: "{{ .Values.grafana.image.repository }}@{{ .Values.grafana.image.digest }}"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.grafana.adminSecret }}, key: password}
+            # Without this Secret the container doesn't start, so Grafana stays unready.
+            - name: INFLUXDB_READ_TOKEN
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.grafana.tokenSecret }}, key: token}
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "false"
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+            - name: GF_ANALYTICS_REPORTING_ENABLED
+              value: "false"
+            - name: GF_ANALYTICS_CHECK_FOR_UPDATES
+              value: "false"
+            - name: GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES
+              value: "false"
+            - name: GF_NEWS_NEWS_FEED_ENABLED
+              value: "false"
+            - name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH
+              value: /var/lib/grafana-dashboards/pumps.json
+            - name: GF_LOG_MODE
+              value: console
+            # Grafana's start-up tasks compete for its SQLite database; on a slow
+            # disk five attempts were not always enough.
+            - name: GF_DATABASE_WAL
+              value: "true"
+            - name: GF_DATABASE_TRANSACTION_RETRIES
+              value: "20"
+          ports:
+            - name: http
+              containerPort: 3000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.grafana.resources | nindent 12 }}
+          startupProbe:
+            httpGet: {path: /api/health, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /api/health, port: http}
+            periodSeconds: 10
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: {path: /api/health, port: http}
+            periodSeconds: 20
+            failureThreshold: 3
+          volumeMounts:
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/datasources/datasource.yaml
+              subPath: datasource.yaml
+              readOnly: true
+            - name: provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+              readOnly: true
+            - name: dashboards
+              mountPath: /var/lib/grafana-dashboards
+              readOnly: true
+            # Grafana's database and plugins; the provisioned dashboard is the source.
+            - name: data
+              mountPath: /var/lib/grafana
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: provisioning
+          configMap:
+            name: grafana-provisioning
+        - name: dashboards
+          configMap:
+            name: grafana-dashboards
+        - name: data
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

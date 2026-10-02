@@ -1,0 +1,118 @@
+# demos/influxdb.json and Grafana's data source use this Service name.
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "demo.labels" (dict "root" . "name" "influxdb") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "demo.selector" (dict "root" . "name" "influxdb") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8086
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: influxdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "demo.labels" (dict "root" . "name" "influxdb") | nindent 4 }}
+spec:
+  replicas: 1
+  # One pod at a time owns the volume.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "demo.selector" (dict "root" . "name" "influxdb") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo.labels" (dict "root" . "name" "influxdb") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: influxdb
+          image: "{{ .Values.influxdb.image.repository }}@{{ .Values.influxdb.image.digest }}"
+          imagePullPolicy: IfNotPresent
+          env:
+            # The image's setup runs only when the volume holds no data yet.
+            - name: DOCKER_INFLUXDB_INIT_MODE
+              value: setup
+            - name: DOCKER_INFLUXDB_INIT_USERNAME
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.influxdb.adminSecret }}, key: username}
+            - name: DOCKER_INFLUXDB_INIT_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.influxdb.adminSecret }}, key: password}
+            - name: DOCKER_INFLUXDB_INIT_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.influxdb.adminSecret }}, key: token}
+            - name: DOCKER_INFLUXDB_INIT_ORG
+              value: {{ .Values.influxdb.org | quote }}
+            - name: DOCKER_INFLUXDB_INIT_BUCKET
+              value: {{ .Values.influxdb.bucket | quote }}
+            - name: DOCKER_INFLUXDB_INIT_RETENTION
+              value: {{ .Values.influxdb.retention | quote }}
+            - name: INFLUXD_REPORTING_DISABLED
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 8086
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.influxdb.resources | nindent 12 }}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 20
+            failureThreshold: 3
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/influxdb2
+            - name: config
+              mountPath: /etc/influxdb2
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.influxdb.existingClaim }}
+        # The image writes its CLI configuration here during setup.
+        - name: config
+          emptyDir:
+            sizeLimit: 1Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

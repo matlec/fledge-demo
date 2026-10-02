@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "image",
+    "existingClaim",
+    "credentialsSecret",
+    "resources",
+    "service",
+    "ui"
+  ],
+  "properties": {
+    "image": {
+      "type": "object",
+      "required": [
+        "repository",
+        "digest"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:[._:/-][a-z0-9]+)*$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "existingClaim": {
+      "type": "string",
+      "minLength": 1
+    },
+    "credentialsSecret": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": false,
+    "retentionHours": false,
+    "service": {
+      "$ref": "#/definitions/service"
+    },
+    "ui": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "service",
+        "resources"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "repository": {
+              "type": "string"
+            },
+            "digest": {
+              "type": "string"
+            }
+          }
+        },
+        "service": {
+          "$ref": "#/definitions/service"
+        },
+        "resources": {
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "image"
+            ],
+            "properties": {
+              "image": {
+                "type": "object",
+                "required": [
+                  "repository",
+                  "digest"
+                ],
+                "properties": {
+                  "repository": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z0-9]+(?:[._:/-][a-z0-9]+)*$"
+                  },
+                  "digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "service": {
+      "type": "object",
+      "required": [
+        "type",
+        "nodePort"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "ClusterIP",
+            "NodePort"
+          ]
+        },
+        "nodePort": {
+          "type": "integer",
+          "minimum": 30000,
+          "maximum": 32767
+        }
+      }
+    }
+  }
+}

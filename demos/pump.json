@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "certificates": [
+    {"name": "demo-ca", "cert": "demo-ca.der"},
+    {"name": "demo-ca-crl", "cert": "demo-ca-crl.der"},
+    {"name": "pump-simulator", "cert": "pump-simulator.der"},
+    {"name": "fledge-opcua-client", "cert": "fledge-opcua-client.der", "key": "fledge-opcua-client.pem"}
+  ],
+  "sources": [
+    {
+      "name": "pump-opcua",
+      "type": "south",
+      "plugin": "s2opcua",
+      "version": "3.1.0",
+      "config": {
+        "url": "opc.tcp://pump-simulator.fledge-demo.svc:4840",
+        "subscription": "{\"subscriptions\": [\"ns=2;s=Pump1\", \"ns=2;s=Pump2\", \"ns=2;s=Pump3\"]}",
+        "assetNaming": "Asset per object",
+        "datapointName": "Browse Name",
+        "reportingInterval": "0",
+        "dcfEnabled": "true",
+        "dcfTriggerType": "Status + Value + Timestamp",
+        "dcfDeadbandType": "None",
+        "securityMode": "SignAndEncrypt",
+        "securityPolicy": "Basic256Sha256",
+        "userAuthPolicy": "anonymous",
+        "caCert": "demo-ca",
+        "caCrl": "demo-ca-crl",
+        "serverCert": "pump-simulator",
+        "clientCert": "fledge-opcua-client",
+        "clientKey": "fledge-opcua-client"
+      },
+      "enabled": true
+    }
+  ],
+  "retention": {"age": "6", "size": "1000000", "retainUnsent": "purge unsent"},
+  "verification": {
+    "source": "pump-opcua",
+    "assets": ["Pump1", "Pump2", "Pump3"],
+    "datapoints": ["Speed", "Flow", "SuctionPressure", "DischargePressure", "MotorCurrent",
+                   "MotorPower", "WindingTemperature", "BearingVibration", "BearingTemperature",
+                   "SpeedSetpoint", "Scenario", "Severity", "Running"],
+    "maxAgeSeconds": 10
+  }
+}

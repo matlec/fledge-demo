@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "name": "influxdb-sink",
+      "type": "north",
+      "plugin": "influxdb",
+      "version": "1.0.0",
+      "config": {
+        "url": "http://influxdb.fledge-demo.svc:8086",
+        "org": "fledge-demo",
+        "bucket": "pumps",
+        "measurement": "fledge",
+        "token": {"env": "FLEDGE_INFLUXDB_TOKEN"}
+      },
+      "enabled": true
+    }
+  ],
+  "verification": {
+    "source": "influxdb-sink",
+    "org": "fledge-demo",
+    "bucket": "pumps",
+    "measurement": "fledge",
+    "assets": ["Pump1", "Pump2", "Pump3"],
+    "datapoints": ["Speed", "Flow", "SuctionPressure", "DischargePressure", "MotorCurrent",
+                   "MotorPower", "WindingTemperature", "BearingVibration", "BearingTemperature",
+                   "SpeedSetpoint", "Scenario", "Severity", "Running"],
+    "maxAgeSeconds": 10
+  }
+}

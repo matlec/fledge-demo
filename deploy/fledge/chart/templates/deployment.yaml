@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/name: fledge
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/name: fledge
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: fledge
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: fledge
+          image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
+          imagePullPolicy: IfNotPresent
+          command: ["python3", "/opt/fledge/runtime.py", "run"]
+          ports:
+            - name: api
+              containerPort: 8081
+          securityContext:
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          startupProbe:
+            exec:
+              command: ["python3", "/opt/fledge/runtime.py", "startup"]
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 36
+          readinessProbe:
+            exec:
+              command: ["python3", "/opt/fledge/runtime.py", "readiness"]
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 1
+          livenessProbe:
+            exec:
+              command: ["python3", "/opt/fledge/runtime.py", "liveness"]
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: data
+              mountPath: /usr/local/fledge/data
+            - name: credentials
+              mountPath: /run/fledge-credentials
+              readOnly: true
+            - name: logs
+              mountPath: /var/log
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ required "existingClaim is required" .Values.existingClaim }}
+        - name: credentials
+          secret:
+            secretName: {{ required "credentialsSecret is required" .Values.credentialsSecret }}
+            defaultMode: 0400
+        - name: logs
+          emptyDir:
+            sizeLimit: 256Mi

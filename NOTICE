@@ -1,0 +1,9 @@
+Fledge on ZEDEDA
+Copyright 2026 ZEDEDA, Inc.
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It includes an unmodified copy of the Fledge sinusoid south plugin 3.1.0
+(image/fledge/sinusoid), from https://github.com/fledge-iot/fledge-south-sinusoid,
+licensed under the Apache License, Version 2.0. Its provenance is recorded in
+image/fledge/sinusoid/PROVENANCE.md.

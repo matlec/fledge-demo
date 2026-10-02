@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "name": "pump-scores",
+      "type": "south",
+      "plugin": "http_south",
+      "version": "3.1.0",
+      "config": {"host": "127.0.0.1", "port": "6683", "uri": "scores", "assetNamePrefix": "",
+                 "enableHttp": "true", "enableCORS": "false"},
+      "advanced": {"bufferThreshold": "3"},
+      "enabled": true
+    },
+    {
+      "name": "pump-inference",
+      "type": "north",
+      "plugin": "pump_inference",
+      "version": "1.0.2",
+      "config": {
+        "assets": "Pump1,Pump2,Pump3",
+        "engineUrl": {"env": "FLEDGE_INFERENCE_URL"},
+        "model": "pump-anomaly",
+        "version": "1",
+        "window": "10",
+        "ingestUrl": "http://127.0.0.1:6683/scores",
+        "scoreSuffix": "Score"
+      },
+      "enabled": true
+    }
+  ],
+  "verification": {
+    "source": "pump-inference",
+    "ingest": "pump-scores",
+    "assets": ["Pump1", "Pump2", "Pump3"],
+    "scoreSuffix": "Score",
+    "maxAgeSeconds": 30
+  }
+}

@@ -1,0 +1,32 @@
+# Select a published bundled image that implements the lifecycle contract.
+image:
+  repository: matthiasl381/fledge
+  digest: sha256:6cea3e67728fbc97e49e38fa27cd4945669fb41602fa1fb2766a13a8e9209b3a
+imagePullSecrets: []
+service:
+  type: ClusterIP
+  nodePort: 30081
+ui:
+  enabled: false
+  image:
+    repository: ""
+    digest: ""
+  service:
+    type: ClusterIP
+    nodePort: 30080
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+existingClaim: fledge-data
+credentialsSecret: fledge-admin
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi

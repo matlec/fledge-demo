@@ -1,0 +1,19 @@
+# The volume for InfluxDB. You apply this file with kubectl after
+# deploy/prerequisites.yaml. It is outside deploy/pump-demo, so App Flows doesn't
+# manage it and removing the pump demo keeps the stored points.
+# The PVC uses the default storage class. Set storageClassName to use another.
+# If you rename it, also update influxdb.existingClaim in deploy/pump-demo/chart/values.yaml.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: influxdb-data
+  namespace: fledge-demo
+  labels:
+    app.kubernetes.io/part-of: fledge-demo
+    fledge-demo/owner: operator
+    fledge-demo/instance: pump-demo
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi

@@ -1,0 +1,9 @@
+# Test dependencies (tests/integration.py, tests/test_chart.py, tests/test_pump_server.py,
+# tests/test_pump_anomaly_model.py). numpy, onnx and protobuf match
+# model/pump-anomaly/requirements.txt.
+# The operator scripts use only the Python standard library.
+PyYAML==6.0.2
+asyncua==2.0.1
+numpy==1.26.4
+onnx==1.17.0
+protobuf==7.36.2

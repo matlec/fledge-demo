@@ -1,0 +1,20 @@
+# Register only deploy/fledge/ in App Flows, never the repository root.
+# The namespace/PVC/Secret must already exist outside this bundle.
+defaultNamespace: fledge-demo
+helm:
+  chart: ./chart
+  releaseName: fledge
+  # Demo selection; chart defaults remain private with the GUI disabled.
+  # Requires restricted LAN reachability; see README.md before deployment.
+  values:
+    service:
+      type: NodePort
+      nodePort: 30081
+    ui:
+      enabled: true
+      image:
+        repository: matthiasl381/fledge-gui
+        digest: sha256:dac85fa5dd43ca0c131d9aff492e51f2f4beba8e8e80a5b551a31ae4f8e52246
+      service:
+        type: NodePort
+        nodePort: 30082

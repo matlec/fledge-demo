@@ -1,0 +1,4 @@
+# Generator dependencies; check_engine.py uses only the standard library.
+numpy==1.26.4
+onnx==1.17.0
+protobuf==7.36.2
