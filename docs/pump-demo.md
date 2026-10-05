@@ -15,6 +15,31 @@ first. The commands assume the `.env` settings, `KUBECONFIG`,
 
 ## How it works
 
+```mermaid
+flowchart LR
+  subgraph cl[EVE-k cluster, namespace fledge-demo]
+    subgraph fl[Fledge core]
+      south[pump-opcua south service<br>s2opcua plugin]
+      sink[influxdb-sink north service<br>influxdb plugin]
+    end
+    subgraph pd[Pump demo workload]
+      sim[Pump simulator<br>Service pump-simulator, port 4840]
+      pc[pump-control]
+      influx[(InfluxDB, bucket pumps<br>Service influxdb, port 8086<br>PVC influxdb-data)]
+      graf[Grafana<br>Pumps dashboard]
+    end
+  end
+  kc[kubectl exec on your workstation]
+  browser[Browser on your LAN]
+  sim -- OPC UA, SignAndEncrypt:<br>Pump1, Pump2, Pump3 --> south
+  south -- readings --> sink
+  sink -- write-only token --> influx
+  influx -- read-only token --> graf
+  kc --> pc
+  pc -- OPC UA, SignAndEncrypt:<br>scenario, severity, speed --> sim
+  browser -- NodePort 30083 --> graf
+```
+
 - **One workload, three parts.** App Flows deploys the pump demo from
   `deploy/pump-demo` into the `fledge-demo` namespace, as a second registration of
   your repository. It contains the pump simulator, InfluxDB and Grafana. The

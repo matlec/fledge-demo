@@ -13,6 +13,31 @@ the same terminal settings: `KUBECONFIG`, `FLEDGE_ADMIN_USERNAME`,
 
 ## How it works
 
+```mermaid
+flowchart LR
+  sim[Pump simulator]
+  subgraph fl[Fledge core pod]
+    south[pump-opcua south service]
+    inf[pump-inference north service<br>pump_inference plugin]
+    scores[pump-scores south service<br>http_south plugin, 127.0.0.1:6683]
+    sink[influxdb-sink north service]
+  end
+  subgraph eis[Deployed by EIS]
+    engine[OpenVINO Model Server<br>model pump-anomaly]
+    app[EIS business app, unused]
+  end
+  influx[(InfluxDB)]
+  graf[Grafana]
+  sim -- OPC UA --> south
+  south -- Pump1, Pump2, Pump3 --> inf
+  inf -- windows of 10 steps,<br>KServe v2 --> engine
+  engine -- scores --> inf
+  inf -- Pump1Score, Pump2Score,<br>Pump3Score --> scores
+  south -- readings --> sink
+  scores -- scores --> sink
+  sink --> influx --> graf
+```
+
 - **The model** compares a pump's flow, pressures, motor current, power and
   vibration with the values a healthy pump has at the same speed. It looks at
   windows of 10 one-second steps and returns one anomaly score per window. A
