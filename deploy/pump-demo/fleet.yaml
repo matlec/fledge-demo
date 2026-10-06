@@ -7,7 +7,7 @@ helm:
   chart: ./chart
   releaseName: pump-demo
   # Demo selection: Grafana on the LAN over plain HTTP; the chart default is
-  # cluster-internal. Requires a restricted network; see docs/pump-demo.md.
+  # cluster-internal. Requires a restricted network; see docs/browser-and-lan.md.
   values:
     grafana:
       service:

@@ -31,7 +31,8 @@
         "clientKey": "fledge-opcua-client"
       },
       "enabled": true
-    }
+    },
+    {"name": "gitops-sinusoid", "type": "south", "plugin": "sinusoid", "version": "3.1.0", "enabled": false}
   ],
   "retention": {"age": "6", "size": "1000000", "retainUnsent": "purge unsent"},
   "verification": {

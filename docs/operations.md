@@ -1,33 +1,33 @@
-# Operate the Fledge demo
+# Operate the demo
 
-These procedures extend the [setup guide](../README.md). They assume the
-`KUBECONFIG`, `FLEDGE_ADMIN_USERNAME` and `FLEDGE_ADMIN_PASSWORD` variables from
-its steps 1 and 5, and a running API port-forward on `127.0.0.1:8081`.
+These procedures assume the settings and the API port-forward from
+[Set up a terminal](terminal-setup.md).
 
 ## Change the source configuration
 
-Source and retention settings live in [demos/sinusoid.json](../demos/sinusoid.json).
-Changes take effect when you run `setup-fledge.py configure` again:
+Fledge's sources, north services and retention are declared in
+[demos/](../demos): `sinusoid.json` (part 1), `pump.json` and `influxdb.json`
+(part 2) and `inference.json` (part 3). Changes take effect when you run
+`setup-fledge.py configure` again with the file:
 
-- Settings omitted from the file and unrelated sources stay unchanged.
+- Settings omitted from the file and undeclared sources stay unchanged.
 - Edits made through the API or GUI survive a restart. A later `configure` run
   reapplies only the settings declared in the file.
 - Pod replacement does not rerun setup.
 - Run one setup command at a time.
+- Retention applies to all of Fledge, and the file applied last sets it.
+  `pump.json` also disables the sinusoid, and `sinusoid.json` enables it again.
+  The PVC capacity is not a strict database quota.
 
-The verifier supports the sinusoid configuration, the
-[pump demo](pump-demo.md)'s `demos/pump.json` and `demos/influxdb.json`, and the
-[inference stage](pump-inference.md)'s `demos/inference.json`; snapshots and
-comparisons are for sinusoid only. If you use a different configuration file, pass it with `--config`
-to `configure` and to every verifier run, including snapshot comparisons.
-Readings are kept for 24 hours by default. Retention applies to all of Fledge:
-the pump declaration sets 6 hours, and the file applied last wins. The PVC
-capacity is not a strict database quota.
+The verifier supports all four files. Pass the file with `--config` to
+`configure` and to every verifier run; without it, the verifier checks the
+sinusoid. Snapshots and comparisons are for the sinusoid only.
 
 ## Confirm readings survive a restart
 
-This check shows that data persists. Complete it within the 24-hour retention
-period of the snapshot from setup step 5.
+This check shows that data persists. It uses the sinusoid snapshot from
+[part 1, step 5](1-install-fledge.md#5-initialize-and-configure-fledge), so run
+it before part 2, within the snapshot's 24-hour retention.
 
 ```sh
 kubectl -n fledge-demo get pvc fledge-data -o wide
@@ -40,11 +40,14 @@ Confirm that the PVC still uses the same volume. Restart the port-forward in
 your second terminal, then compare the saved readings:
 
 ```sh
-python3 scripts/verify-fledge.py --api http://127.0.0.1:8081 --compare /tmp/fledge-readings.json
+python3 scripts/verify-fledge.py --api http://127.0.0.1:8081 --config demos/sinusoid.json \
+  --compare /tmp/fledge-readings.json
 ```
 
 Success ends with `PASS: exact stored readings and source settings retained; new
-acquisition observed`.
+acquisition observed`. After part 2, restart the pod the same way and run the
+pump and InfluxDB checks of [part 2, step 6](2-pump-pipeline.md#6-check-acquisition-and-storage)
+instead: pump readings resume without setup.
 
 ## Check controlled shutdown
 
@@ -76,12 +79,11 @@ code `0`. Use a normal restart: a forced pod deletion skips controlled shutdown.
 
 ## Upgrade the image or chart
 
-Keep the PVC, the admin Secret and the source names. Before you deploy a new
+Keep the PVCs, the Secrets and the source names. Before you deploy a new
 revision:
 
-1. Save a reading snapshot with `verify-fledge.py --snapshot`.
-2. Note the current commit, so that you can return to it.
-3. If the new image omits a plugin, disable or remove the sources that use it
+1. Note the current commit, so that you can return to it.
+2. If the new image omits a plugin, disable or remove the sources that use it
    first.
 
 If the new revision pins a different core image, pull it onto the node first.
@@ -99,15 +101,14 @@ kubectl -n fledge-demo wait pod/fledge-pull --for=jsonpath='{.status.phase}'=Suc
 kubectl -n fledge-demo delete pod fledge-pull
 ```
 
-Push the change and run `app-flows.py apply` with the new commit. Reconnect the
-port-forward to the replacement pod. Existing credentials keep working; don't run
-`initialize` again unless the pod stays unready. Rerun `configure` if the
-configuration file changed, then compare the snapshot:
-
-```sh
-python3 scripts/setup-fledge.py configure --api http://127.0.0.1:8081 --config demos/sinusoid.json
-python3 scripts/verify-fledge.py --api http://127.0.0.1:8081 --compare /tmp/fledge-readings.json
-```
+Push the change and run `app-flows.py apply` with the new commit; for the pump
+demo, set `FLEDGE_GITOPS_NAME=pump-demo FLEDGE_GITOPS_PATH=deploy/pump-demo` as
+in part 2. Reconnect the port-forward to the replacement pod. Existing
+credentials keep working; don't run `initialize` again unless the pod stays
+unready. If a declaration changed, run `configure` again with each changed file,
+then run the verifier with each file you use. Before part 2, you can also save a
+sinusoid snapshot before the upgrade and compare it afterwards, as in the
+persistence check.
 
 `configure` manages an existing source by its declared name. It refuses a name
 that belongs to another plugin; don't clear storage to get past this. To roll
@@ -122,6 +123,13 @@ the [Fleet configuration](../deploy/fledge/fleet.yaml), the
 [chart values](../deploy/fledge/chart/values.yaml) and the setup commands. Change
 them in all places together before you push. If you move the application
 path, keep the packaged chart layout intact.
+
+If you rename the namespace, also update `defaultNamespace` in
+[deploy/pump-demo/fleet.yaml](../deploy/pump-demo/fleet.yaml), the namespace in
+[deploy/pump-demo-prerequisites.yaml](../deploy/pump-demo-prerequisites.yaml),
+and the `url` in `demos/pump.json` and `demos/influxdb.json`, and pass the new
+name to `scripts/make-opcua-certs.sh`. The simulator's certificate must contain
+the name that Fledge connects to.
 
 The App Flows registration name, SSH secret name and application path are set in
 `.env` (`FLEDGE_GITOPS_NAME`, `FLEDGE_GITOPS_SECRET`, `FLEDGE_GITOPS_PATH`).
@@ -138,65 +146,81 @@ Kubernetes names:
 python3 scripts/app-flows.py --env-file .env.other status
 ```
 
-## Delete the saved data
+## Replace the OPC UA certificates
 
-**This deletes the demo's stored configuration and readings.** First
-[remove the demo](../README.md#remove-the-demo) and confirm that no pod uses the
-claim. Inspect the claim's namespace, labels and bound volume:
+The simulator loads its certificates when it starts, and Fledge's source loads
+them when the source starts. To replace them all, for example before they
+expire:
+
+1. Create a new set with `scripts/make-opcua-certs.sh --force`. This also
+   replaces the CA, so every certificate changes.
+2. Replace both simulator Secrets: delete them with
+   `kubectl -n fledge-demo delete secret pump-simulator-server pump-simulator-operator`,
+   then create them again as in [part 2, step 2](2-pump-pipeline.md#2-create-the-volume-and-secrets).
+3. Restart the simulator:
+   `kubectl -n fledge-demo rollout restart deployment/pump-simulator`.
+4. Upload the new files and restart the source:
+
+   ```sh
+   python3 scripts/setup-fledge.py configure --api http://127.0.0.1:8081 \
+     --config demos/pump.json --cert-dir "$FLEDGE_CERT_DIR" --restart-sources
+   ```
+
+   The output includes `PASS: restarted source pump-opcua to load its certificates`.
+
+Fledge trusts the simulator certificate itself, not only the CA. Whenever the
+simulator certificate changes, upload it to Fledge and restart the source.
+
+## Replace an InfluxDB token
+
+Define `influxdb_token_secret` as in
+[part 2, step 4](2-pump-pipeline.md#4-create-the-influxdb-tokens), then replace
+the token's Secret.
+
+For Fledge's write token, for example after `HTTP 401` write failures:
 
 ```sh
-kubectl -n fledge-demo get pods
-kubectl -n fledge-demo get pvc fledge-data -o yaml
-export FLEDGE_VOLUME=REPLACE_WITH_THE_CLAIMS_SPEC_VOLUME_NAME
-kubectl get pv "$FLEDGE_VOLUME" -o yaml
+kubectl -n fledge-demo delete secret fledge-influxdb
+influxdb_token_secret write fledge-write fledge-influxdb
+export FLEDGE_INFLUXDB_TOKEN="$(kubectl -n fledge-demo get secret fledge-influxdb -o jsonpath='{.data.token}' | base64 -d)"
+python3 scripts/setup-fledge.py configure --api http://127.0.0.1:8081 --config demos/influxdb.json
 ```
 
-Confirm that the volume's `claimRef` matches this namespace and claim. Check its
-reclaim policy: `Delete` asks the provisioner to remove the backing volume and
-data; `Retain` leaves data behind for the storage owner to clean up.
+Fledge reloads the plugin with the new token and sends the readings it held; the
+storage check shows when InfluxDB has caught up.
+
+For Grafana's read token, delete `grafana-influxdb`, create it with
+`influxdb_token_secret read grafana-read grafana-influxdb`, and restart Grafana
+with `kubectl -n fledge-demo rollout restart deployment/grafana`. Grafana reads
+its token only when it starts.
+
+To revoke a token that is no longer used, list the tokens and delete it by ID:
 
 ```sh
-kubectl -n fledge-demo delete pvc fledge-data
-# For a volume with the Delete reclaim policy:
-kubectl wait --for=delete "pv/$FLEDGE_VOLUME" --timeout=180s
+kubectl -n fledge-demo exec deployment/influxdb -- sh -c 'INFLUX_TOKEN="$DOCKER_INFLUXDB_INIT_ADMIN_TOKEN" influx auth list'
+kubectl -n fledge-demo exec deployment/influxdb -- sh -c 'INFLUX_TOKEN="$DOCKER_INFLUXDB_INIT_ADMIN_TOKEN" influx auth delete --id <ID>'
 ```
 
-If the volume is already absent, deletion has completed. If it remains, inspect
-the provisioner events rather than removing finalizers. When you are finished
-with the demo, delete the admin Secret:
+## Change InfluxDB's retention
 
-```sh
-kubectl -n fledge-demo delete secret fledge-admin
-```
+The chart value `influxdb.retention` applies only on InfluxDB's first start.
+To change the retention of an existing volume, change the bucket's retention in
+InfluxDB, for example with `influx bucket update` in the pod.
 
-Leave the namespace unless it is empty and you intend to remove it.
+## Change the dashboard
 
-The ZEDEDA API can create the SSH secret but can't update or delete it, so it
-stays in ZEDEDA. Remove the deploy key from your GitHub repository to revoke its
-access. If you deploy again later without the original key pair, choose a new
-`FLEDGE_GITOPS_SECRET` name for the new key.
+Grafana loads the **Pumps** dashboard from the chart. Changes that you make in
+Grafana are lost when its pod restarts. Change
+`deploy/pump-demo/chart/files/pumps.json` instead, push it, and run `apply` for
+the pump demo with the new commit.
+
+## Deploy the model again
+
+The engine's Service name contains part of the EIS deployment's ID, so every new
+deployment gets a new name. After deploying the model again, repeat steps 3 and
+4 of [part 3](3-anomaly-scoring.md) with the new name. Until then, Fledge keeps
+the unscored readings and scores them once the address is set.
 
 ## Troubleshooting
 
-For deployment problems, start with `python3 scripts/app-flows.py status` or the
-registration's **Status** tab in the ZEDEDA console. For pod problems, inspect
-events and logs:
-
-```sh
-kubectl -n fledge-demo get events --sort-by=.metadata.creationTimestamp
-kubectl -n fledge-demo logs deployment/fledge
-```
-
-| Symptom | What to check |
-| --- | --- |
-| zcli prints `Please run zcli configure before using any commands.` | Run `zcli configure` and `zcli login` with the same alias. zcli can exit 0 after an error. |
-| `app-flows.py` reports HTTP 401 or 403 | The token has expired or lacks GitOps permissions. Create a new token, then run `zcli configure` and `zcli login` again. |
-| `app-flows.py` reports several registrations with one name | Choose a unique `FLEDGE_GITOPS_NAME`, or remove the unintended registration in the console. |
-| PVC stays `Pending` | With `WaitForFirstConsumer`, binding waits for pod scheduling. Check pod and storage events. |
-| `ImagePullBackOff` | Check the registry, repository, digest and image-pull Secret. Keep the pinned image digest. |
-| Missing Secret or `FailedMount` | Confirm that the admin Secret exists in the same namespace. |
-| Fresh pod stays unready | Forward to the running pod and run `initialize`; readiness follows setup. For retained data, restore the matching Secret without resetting storage. |
-| Port-forward fails or disconnects | Check `KUBECONFIG` and that the pod is running. Restart forwarding after pod replacement. If port 8081 is in use, use another local port in all commands. |
-| API responds but readings do not appear | Run the verifier and inspect source settings. An API response alone does not confirm acquisition. |
-| Snapshot comparison reports missing or expired readings | Readings may have passed the retention period. Capture a new snapshot before repeating the check. |
-| GUI, login or LAN problems | See [Browser and LAN access](browser-and-lan.md#troubleshooting). |
+See [Troubleshooting](troubleshooting.md).

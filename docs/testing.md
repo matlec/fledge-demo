@@ -69,8 +69,8 @@ To test other images, set `FLEDGE_TEST_IMAGE` and `FLEDGE_TEST_ALTERNATE`.
 
 The suite checks that the OPC UA plugin loads and accepts a disabled source, but
 it starts no OPC UA server, so it does not test OPC UA acquisition. Check Fledge
-acquisition from the simulator with the [pump demo](pump-demo.md) steps and
+acquisition from the simulator with the [part 2](2-pump-pipeline.md) steps and
 `verify-fledge.py --config demos/pump.json` and `--config demos/influxdb.json`.
 Tests on a real cluster (GitOps
 reconciliation, image pulls, storage and LAN access) follow the
-[setup guide](../README.md) and [operations](operations.md) procedures.
+[part 1](1-install-fledge.md) and [operations](operations.md) procedures.

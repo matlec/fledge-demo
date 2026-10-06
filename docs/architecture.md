@@ -1,12 +1,11 @@
 # Architecture
 
 The demo runs one persistent Fledge instance on a single-node AMD64 EVE-k cluster.
-The optional pump demo adds a simulator that serves three simulated pumps over
-secure OPC UA, and InfluxDB and Grafana that store and show their readings. Its
-optional inference stage scores each pump with an anomaly model that ZEDEDA Edge
-Inference Services (EIS) serves on the CPU. For the procedures, see the
-[setup guide](../README.md), the [pump demo](pump-demo.md) and
-[pump inference](pump-inference.md).
+Part 1 installs it with a sinusoid source as a first check. Part 2 adds a
+simulator that serves three simulated pumps over secure OPC UA, and InfluxDB and
+Grafana that store and show their readings. Part 3 scores each pump with an
+anomaly model that ZEDEDA Edge Inference Services (EIS) serves on the CPU. For
+the procedures, start at the [README](../README.md).
 
 ## Components
 
@@ -17,7 +16,7 @@ Inference Services (EIS) serves on the CPU. For the procedures, see the
 | Admin password, sources, north services and retention | `scripts/setup-fledge.py`, `demos/sinusoid.json`, `demos/pump.json`, `demos/influxdb.json`, `demos/inference.json` | The operator, through the Fledge API |
 | Pump simulator, InfluxDB and Grafana | Helm chart in `deploy/pump-demo/chart` | A second App Flows registration of the same repository |
 | OPC UA certificates, Secrets `pump-simulator-server` and `pump-simulator-operator` | `scripts/make-opcua-certs.sh` | The operator, outside the repository |
-| PVC `influxdb-data`, Secrets `influxdb-admin`, `grafana-admin`, `grafana-influxdb` and `fledge-influxdb` | `deploy/pump-demo-prerequisites.yaml`, the [pump demo](pump-demo.md) | The operator, with `kubectl` |
+| PVC `influxdb-data`, Secrets `influxdb-admin`, `grafana-admin`, `grafana-influxdb` and `fledge-influxdb` | `deploy/pump-demo-prerequisites.yaml`, [part 2](2-pump-pipeline.md) | The operator, with `kubectl` |
 | Core, GUI and simulator images | `image/fledge`, `image/fledge-gui`, `image/pump-simulator` | Built and published by a maintainer |
 | InfluxDB and Grafana images | Upstream `influxdb` 2.7 and `grafana/grafana`, pinned by digest | The chart values |
 | Pump anomaly model | `model/pump-anomaly/generate_model.py` | Created by the operator, uploaded to EIS |
@@ -50,7 +49,8 @@ can browse, read and subscribe, but can't write. It loads
 its certificates at startup and keeps no state, so a restart resets the pumps.
 
 Fledge reads the pumps with the `s2opcua` plugin, configured by
-`demos/pump.json`. `configure` first uploads the CA, its revocation list, the
+`demos/pump.json`, which also disables the sinusoid source of part 1.
+`configure` first uploads the CA, its revocation list, the
 server certificate and the Fledge client pair through the Fledge certificate API;
 the plugin reads them when its service starts. Each Variable update becomes one
 reading with one datapoint, named after the Variable, in an asset named after
@@ -117,6 +117,10 @@ Kubernetes Secret is the only copy of the Fledge admin password.
 - **Data resources stay outside GitOps**, so removing the workload can't delete
   the data.
 - **The GUI is a separate workload**, so GUI updates never restart acquisition.
+- **The sinusoid is a first check, not part of the pipeline.** It proves core,
+  storage and authentication before OPC UA, certificates and InfluxDB are
+  involved. The pump declaration disables it, so InfluxDB and the retention
+  serve pump data only.
 - **The pump simulator is maintained here**, built on `asyncua`, because generic
   OPC UA simulators produce independent values; a demo of condition monitoring
   needs coherent physics, injected faults and ground truth.
@@ -159,7 +163,8 @@ Kubernetes Secret is the only copy of the Fledge admin password.
 - The core image reuses the published upstream binaries, whose native build
   revision can't be verified.
 - Pump readings carry one datapoint each: about 39 readings per second for three
-  pumps, next to one for sinusoid. InfluxDB stores one point per pump and step.
+  pumps, and 3 score readings with part 3. InfluxDB stores one point per pump and
+  step.
 - Retention is a Fledge-wide setting: the declaration applied last sets it.
 - The simulated values are illustrative, not a validated pump model; restarting
   the simulator clears injected faults.

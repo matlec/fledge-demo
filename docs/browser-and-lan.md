@@ -3,7 +3,8 @@
 The demo serves the upstream Fledge GUI next to the core. The supplied
 [Fleet configuration](../deploy/fledge/fleet.yaml) enables the GUI and exposes
 both it and the API on the node's network. This page covers the options and the
-GUI tasks beyond the [setup guide](../README.md#6-open-the-gui).
+GUI tasks beyond [part 1](1-install-fledge.md#6-open-the-gui). The last section
+covers Grafana from [part 2](2-pump-pipeline.md).
 
 ## Configuration
 
@@ -74,7 +75,7 @@ Set both Service types to `ClusterIP` in the Fleet configuration, push, and run
 GUI. The NodePorts disappear; the core pod, PVC and credentials remain. To roll
 back a GUI image change on its own, select the earlier GUI digest.
 
-With the GUI enabled privately, keep the API port-forward from setup step 5
+With the GUI enabled privately, keep the API port-forward from part 1, step 5
 running and start this in another terminal with the same `KUBECONFIG`:
 
 ```sh
@@ -93,8 +94,8 @@ port `8081`. Restart a port-forward if its pod is replaced.
    selected API port if you changed it. Click **Set the URL & Restart**.
 3. Enter the admin username and the password from the Secret, and click
    **Log In**. The dashboard's **Received** count increases as readings arrive.
-   Open **Readings** and use **Most recent reading** beside `gitops-sinusoid` to
-   inspect its value. Use the verifier from setup step 5 to check acquisition.
+   Open **Readings** and use **Most recent reading** beside an asset, such as
+   `gitops-sinusoid` in part 1 or `Pump1` after part 2, to inspect its value. Use the verifier from part 1, step 5 to check acquisition.
 
 The API selection belongs to this browser profile and GUI address. Reloads and UI
 pod replacement keep it; a new browser profile or GUI address needs setup again.
@@ -102,7 +103,7 @@ Use **Settings → Connection Setup** to change the selected instance.
 
 ## Edit the demo source
 
-Clear **Flow Editor** under **Settings → GUI Settings** to use the list view.
+These steps edit the sinusoid source of part 1. Clear **Flow Editor** under **Settings → GUI Settings** to use the list view.
 Open **South**, then **gitops-sinusoid**. Its **Basic** and **Advanced** tabs
 show the plugin and acquisition settings. Change a field and click **Save**.
 
@@ -110,6 +111,23 @@ Source edits made in the GUI persist across core replacement. Running
 `setup-fledge.py configure` later reapplies only the settings declared in its
 file, including any of those fields you changed in the GUI. Opening or restarting
 the GUI does not run setup or configure sources.
+
+## Grafana
+
+The pump demo's [Fleet configuration](../deploy/pump-demo/fleet.yaml) exposes
+Grafana on NodePort `30083`, over plain HTTP like the Fledge GUI. To use another
+port, set `grafana.service.nodePort`, from 30000 to 32767, in the same file.
+
+To keep Grafana off the LAN, remove the `values` section from that file, push
+the change and run `apply` for the pump demo with the new commit. Then forward
+Grafana and open `http://127.0.0.1:3000`:
+
+```sh
+kubectl -n fledge-demo port-forward --address 127.0.0.1 deployment/grafana 3000:3000
+```
+
+A port-forward goes through ZEDEDA's cloud, so the dashboard refreshes more
+slowly than on the LAN.
 
 ## Troubleshooting
 

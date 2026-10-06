@@ -80,7 +80,7 @@ docker run --rm --entrypoint cat fledge-bundle:local \
 ```
 
 The image contains the runtime and selected plugins. Credentials and source configuration
-are supplied after deployment using the [operator setup steps](../README.md#5-initialize-and-configure-fledge).
+are supplied after deployment using the [operator setup steps](1-install-fledge.md#5-initialize-and-configure-fledge).
 
 ## Publish and select the image
 
@@ -155,7 +155,7 @@ core image or plugin selection. Both workloads reuse `imagePullSecrets` when con
 
 ## Build and publish the pump simulator
 
-The [pump demo](pump-demo.md) uses a separate simulator image. Build it from the
+The [pump pipeline](2-pump-pipeline.md) uses a separate simulator image. Build it from the
 repository root; the simulator package is passed as a named build context:
 
 ```sh

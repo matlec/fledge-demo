@@ -5,7 +5,7 @@ helm:
   chart: ./chart
   releaseName: fledge
   # Demo selection; chart defaults remain private with the GUI disabled.
-  # Requires restricted LAN reachability; see README.md before deployment.
+  # Requires restricted LAN reachability; see docs/browser-and-lan.md before deployment.
   values:
     service:
       type: NodePort
