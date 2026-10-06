@@ -1,6 +1,6 @@
 apiVersion: v2
 name: pump-demo
 description: Simulated pumps over secure OPC UA, with InfluxDB and Grafana for their readings, inside the cluster by default
-version: 0.3.0
+version: 0.3.1
 appVersion: "0.3.0"
 type: application
