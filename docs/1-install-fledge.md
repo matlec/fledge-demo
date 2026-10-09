@@ -74,8 +74,11 @@ You need:
 - Permission to create a namespace, PVC and Secret. The cluster must allow the
   Fledge container to run as root.
 - A ZEDEDA API token with access to the cluster and its GitOps resources
-  (**User profile → Session Information**), and a private GitHub repository to
-  which you can push and add a read-only deploy key.
+  (**User profile → Session Information**).
+- A new, empty private GitHub repository that you can push to and add a deploy
+  key to. App Flows deploys from it, and you push a copy of this repository to it
+  in step 3. Create it without a README or license. Don't fork this repository
+  instead: GitHub forks of public repositories are public.
 - Docker, Git, Python 3.10 or newer, `jq`, `openssl`, `ssh-keygen`, and
   `kubectl` within one minor version of your cluster.
 - Network access: your workstation reaches GitHub and ZEDEDA over HTTPS, App
@@ -171,8 +174,7 @@ password does not change the account stored in Fledge.
 ## 3. Give App Flows access to your repository
 
 App Flows deploys from a Git repository that you control, so push a copy of this
-repository to the private repository you set in `.env`. Create it on GitHub
-without a README or license, so that it is empty, then push:
+repository to the empty private repository you set in `.env`:
 
 ```sh
 git remote add deploy "$FLEDGE_GITOPS_REPOSITORY_URL"

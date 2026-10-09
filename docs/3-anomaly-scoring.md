@@ -37,13 +37,15 @@ flowchart LR
   sink --> influx --> graf
 ```
 
-The model compares a pump's flow, pressures, motor current, power and vibration
-with those of a healthy pump at the same speed, over windows of 10 one-second steps, and returns one anomaly score
-per window. A score of 1.0 or more is anomalous. A script in this repository
+Every second, the model looks at each pump's latest 10 seconds of readings. It
+compares the pump's flow, pressures, motor current, power and vibration with
+those of a healthy pump at the same speed, and returns one anomaly score for
+those 10 seconds. A score of 1.0 or more is anomalous. A script in this repository
 trains it on the simulator's own pump model. EIS serves it with OpenVINO Model
 Server through a KServe v2 endpoint inside the cluster. EIS owns this
-deployment, not App Flows. It also deploys its standard business app, which runs
-unused because Fledge is this demo's application.
+deployment, not App Flows. EIS always deploys a business app with the model, an
+application that calls it. This demo doesn't use that app: Fledge calls the
+model directly.
 
 In Fledge, the `pump-inference` north service sends the pump readings to the
 endpoint, and posts each score back to the `pump-scores` south service as a
@@ -70,7 +72,8 @@ You need:
 
 The pinned core image includes the `pump_inference` and `http_south` plugins.
 EIS uses its own credentials, separate from your ZEDEDA infrastructure
-credentials. Keep its token out of files, chat and Git.
+credentials. Don't store its token in files or Git; step 2 reads it into the
+terminal without showing it.
 
 ## 1. Create the model
 
@@ -84,15 +87,17 @@ python3 -m venv ~/.cache/fledge-demo/model-venv
   ~/.cache/fledge-demo/pump-anomaly
 ```
 
-The generator writes the directory that you upload in step 2, and one file next
-to it:
+The generator writes three files:
 
-- `pump-anomaly/model.onnx`, the model.
-- `pump-anomaly/README.md`, the model card that EIS shows with the model. It
-  describes the score, the input and output, the training and the limits, with
-  the evaluation results and the model's SHA256.
-- `pump-anomaly.reference.json`, three test windows and the scores the model
-  must return for them. You use it to check the deployed model in step 3.
+- `~/.cache/fledge-demo/pump-anomaly/model.onnx`: the model.
+- `~/.cache/fledge-demo/pump-anomaly/README.md`: the model card that EIS shows
+  with the model. It describes the score, the input and output, the training and
+  the limits, with the evaluation results and the model's SHA256.
+- `~/.cache/fledge-demo/pump-anomaly.reference.json`: three test windows and the
+  scores the model must return for them. It is next to the directory, not in it,
+  so the upload in step 2 doesn't include it. You use it in step 3.
+
+You upload the `pump-anomaly` directory in step 2.
 
 It prints the model's SHA256, its input and output, and its scores on simulated
 operation that it didn't train on. It fails, and writes nothing, if the model
@@ -193,9 +198,6 @@ three scores, when the endpoint answers for the same model and version with the
 expected output and every score matches the reference. Otherwise it fails with
 the reason, for example `engine rejected the request: HTTP 404` for a model or
 version that the engine doesn't serve. Stop the port-forward when it passes.
-
-Do not print the generated Helm values or the full pod arguments: they can
-contain the credentials of your model store.
 
 ## 4. Configure scoring
 

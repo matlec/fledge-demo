@@ -181,6 +181,7 @@ Kubernetes Secret is the only copy of the Fledge admin password.
   after a Fledge restart.
 - EIS generates the inference deployment with its own image tags; its engine pod
   fetches the model from EIS's model store whenever it starts.
-- EIS's standard business app runs unused next to the engine. The engine's
+- EIS deploys its standard business app next to the engine, and it uses
+  resources although the demo doesn't use it. The engine's
   Service name comes from the deployment's ID, so a new deployment needs a new
   `FLEDGE_INFERENCE_URL`.
