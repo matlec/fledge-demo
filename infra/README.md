@@ -1,7 +1,7 @@
 # Automated deployment
 
-This folder automates the cluster steps of [Part 1](../docs/1-install-fledge.md)
-and [Part 2](../docs/2-pump-pipeline.md) with OpenTofu, for an existing ZKS
+This folder automates the steps of [Part 1](../docs/1-install-fledge.md),
+[Part 2](../docs/2-pump-pipeline.md) and [Part 3](../docs/3-anomaly-scoring.md) with OpenTofu and scripts, for an existing ZKS
 cluster. The manual steps in `docs/` stay valid. Use them if you do not use
 OpenTofu.
 
@@ -14,6 +14,8 @@ OpenTofu.
 | Part 2: volume, Secrets, deploy the pump demo | `pump-demo.tf` (`-var pump_demo=true`) |
 | Part 2: create the InfluxDB tokens | `fledge.sh influx-tokens` |
 | Part 2: configure and check Fledge | `fledge.sh configure`, `fledge.sh verify` |
+| Part 3: upload and deploy the model | `eip.sh upload`, `submit`, `approve` (sa-demos platform) |
+| Part 3: configure and check scoring | `fledge.sh configure`, `fledge.sh verify` |
 
 The settings come from `../.envrc` (direnv): ZEDEDA URL and API token,
 `KUBE_CONFIG_PATH` for the cluster, and `FLEDGE_CERT_DIR`.
@@ -43,6 +45,31 @@ direnv exec . infra/fledge.sh configure demos/influxdb.json
 direnv exec . infra/fledge.sh verify demos/pump.json
 direnv exec . infra/fledge.sh verify demos/influxdb.json
 ```
+
+## Part 3
+
+`eip.sh` is in the sa-demos platform repository (`../../platform/scripts`).
+It needs the two EIS API keys in `secrets/eip-prod.env`.
+
+```sh
+python3 -m venv ~/.cache/fledge-demo/model-venv
+~/.cache/fledge-demo/model-venv/bin/pip install -r model/pump-anomaly/requirements.txt
+~/.cache/fledge-demo/model-venv/bin/python model/pump-anomaly/generate_model.py ~/.cache/fledge-demo/pump-anomaly
+
+eip=../../platform/scripts/eip.sh
+direnv exec . $eip upload pump-anomaly ~/.cache/fledge-demo/pump-anomaly    # prints the version
+direnv exec . $eip submit fledge-pump-anomaly pump-anomaly 1 sa-lab-k       # prints the submission id
+id=<submission id>
+direnv exec . $eip approve $id
+
+# The engine Service is dep-<first 6 characters of the id>-edgeai-inference-openvino-server.
+export FLEDGE_INFERENCE_URL=http://dep-${id:0:6}-edgeai-inference-openvino-server.default.svc:8001
+direnv exec . infra/fledge.sh configure demos/inference.json
+direnv exec . infra/fledge.sh verify demos/inference.json
+```
+
+If the upload prints a version other than 1, set `version` in
+`demos/inference.json` to match.
 
 The tofu state contains the generated passwords and the InfluxDB admin token.
 Git ignores it.
