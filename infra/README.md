@@ -1,17 +1,24 @@
 # Automated deployment
 
 This folder automates the cluster steps of [Part 1](../docs/1-install-fledge.md)
-with OpenTofu, for an existing ZKS cluster. The manual steps in `docs/` stay
-valid. Use them if you do not use OpenTofu.
+and [Part 2](../docs/2-pump-pipeline.md) with OpenTofu, for an existing ZKS
+cluster. The manual steps in `docs/` stay valid. Use them if you do not use
+OpenTofu.
 
 | Manual step | Automation |
 |---|---|
-| Create storage and the admin Secret | `main.tf` (from `deploy/prerequisites.yaml`, generated password) |
-| Give App Flows access, deploy Fledge | `main.tf` (`zedcloud_kubernetes_gitops`). The repository is public, so no Git secret is necessary. |
-| Initialize and configure Fledge | `fledge.sh` (port-forward, then `scripts/setup-fledge.py`) |
+| Part 1: create storage and the admin Secret | `main.tf` (from `deploy/prerequisites.yaml`, generated password) |
+| Part 1: give App Flows access, deploy Fledge | `main.tf` (`zedcloud_kubernetes_gitops`). The repository is public, so no Git secret is necessary. |
+| Part 1: initialize and configure Fledge | `fledge.sh initialize`, `fledge.sh configure` |
+| Part 2: create the certificates | `scripts/make-opcua-certs.sh` (unchanged) |
+| Part 2: volume, Secrets, deploy the pump demo | `pump-demo.tf` (`-var pump_demo=true`) |
+| Part 2: create the InfluxDB tokens | `fledge.sh influx-tokens` |
+| Part 2: configure and check Fledge | `fledge.sh configure`, `fledge.sh verify` |
 
-The settings come from `../.envrc` (direnv): ZEDEDA URL and API token, and
-`KUBE_CONFIG_PATH` for the cluster.
+The settings come from `../.envrc` (direnv): ZEDEDA URL and API token,
+`KUBE_CONFIG_PATH` for the cluster, and `FLEDGE_CERT_DIR`.
+
+## Part 1
 
 ```sh
 cd infra
@@ -23,4 +30,19 @@ direnv exec . infra/fledge.sh configure demos/sinusoid.json
 direnv exec . infra/fledge.sh verify demos/sinusoid.json
 ```
 
-The tofu state contains the generated admin password. Git ignores it.
+## Part 2
+
+```sh
+direnv exec . scripts/make-opcua-certs.sh
+cd infra
+direnv exec . tofu apply -var "revision=$(git rev-parse origin/main)" -var pump_demo=true
+cd ..
+direnv exec . infra/fledge.sh influx-tokens
+direnv exec . infra/fledge.sh configure demos/pump.json --cert-dir "$FLEDGE_CERT_DIR"
+direnv exec . infra/fledge.sh configure demos/influxdb.json
+direnv exec . infra/fledge.sh verify demos/pump.json
+direnv exec . infra/fledge.sh verify demos/influxdb.json
+```
+
+The tofu state contains the generated passwords and the InfluxDB admin token.
+Git ignores it.
