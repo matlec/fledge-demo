@@ -29,13 +29,13 @@ provider "kubernetes" {}
 variable "cluster_name" {
   description = "ZKS cluster (Edge Kubernetes > Clusters)."
   type        = string
-  default     = "sa-lab-k"
+  default     = "sa-k"
 }
 
 variable "project_name" {
   description = "ZEDEDA project of the cluster."
   type        = string
-  default     = "sa-lab"
+  default     = "sa-k"
 }
 
 variable "repository_url" {

@@ -58,7 +58,7 @@ python3 -m venv ~/.cache/fledge-demo/model-venv
 
 eip=../../platform/scripts/eip.sh
 direnv exec . $eip upload pump-anomaly ~/.cache/fledge-demo/pump-anomaly    # prints the version
-direnv exec . $eip submit fledge-pump-anomaly pump-anomaly 1 sa-lab-k       # prints the submission id
+direnv exec . $eip submit fledge-pump-anomaly pump-anomaly 1 sa-k       # prints the submission id
 id=<submission id>
 direnv exec . $eip approve $id
 
